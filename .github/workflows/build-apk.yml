@@ -36,10 +36,15 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Restore project debug keystore
-        run: base64 -d debug.keystore.base64 > debug.keystore
+      - name: Prepare debug keystore for CI build
+        run: |
+          if [ -f debug.keystore.base64 ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          elif [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
-      - name: Build Debug APK (signed with compatible project key)
+      - name: Build Debug APK
         run: gradle :app:assembleDebug --no-daemon
 
       - name: Prepare named APK file
@@ -56,6 +61,6 @@ jobs:
         with:
           tag_name: v1.3
           name: "هنر ارتباط ذهن‌ها - نسخه 1.3"
-          body: "نسخه 1.3 (versionCode 4) - قابل نصب مستقیم روی گوشی اندروید و سازگار با نسخه 1.2."
+          body: "نسخه 1.3 (versionCode 4) - ساخته شده به‌صورت خودکار برای دانلود و نصب روی اندروید."
           files: MindConnection-Akbar-v1.3.apk
           fail_on_unmatched_files: true
