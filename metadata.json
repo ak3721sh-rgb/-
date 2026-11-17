@@ -1,0 +1,6 @@
+{
+  "name": "هنر ارتباط ذهن‌ها",
+  "description": "اپلیکیشن جامع و تخصصی آموزش هنر ارتباط ذهن‌ها؛ از تمرکز و شهود تا همدلی و شناخت ارتباط انسانی — مدرس: اکبر شیرزادخانی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
