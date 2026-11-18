@@ -106,15 +106,15 @@ private data class MindButtonPalette(
 )
 
 private fun resolveButtonPalette(variant: Mind3DButtonVariant): MindButtonPalette = when (variant) {
-    Mind3DButtonVariant.Sky -> MindButtonPalette(SkyBlueLight, SkyBluePrimary, Button3DShadowSky, Color.White, Color(0xFF38BDF8))
-    Mind3DButtonVariant.Peach, Mind3DButtonVariant.Orange -> MindButtonPalette(PeachLight, PeachPrimary, Button3DShadowPeach, Color.White, Color(0xFFFB923C))
-    Mind3DButtonVariant.Mint, Mind3DButtonVariant.Emerald -> MindButtonPalette(MintLight, MintPrimary, Button3DShadowMint, Color.White, Color(0xFF4ADE80))
-    Mind3DButtonVariant.Violet -> MindButtonPalette(SpiritualVioletLight, SpiritualVioletPrimary, Button3DShadowViolet, Color.White, Color(0xFFA78BFA))
+    Mind3DButtonVariant.Sky -> MindButtonPalette(Color(0xFFBAE6FD), Color(0xFF7DD3FC), Color(0xFF0284C7), Color(0xFF0C2D48), Color(0xFF38BDF8))
+    Mind3DButtonVariant.Peach, Mind3DButtonVariant.Orange -> MindButtonPalette(Color(0xFFFED7AA), Color(0xFFFDBA74), Color(0xFFEA580C), Color(0xFF3B1704), Color(0xFFFB923C))
+    Mind3DButtonVariant.Mint, Mind3DButtonVariant.Emerald -> MindButtonPalette(Color(0xFFBBF7D0), Color(0xFF86EFAC), Color(0xFF16A34A), Color(0xFF062E18), Color(0xFF4ADE80))
+    Mind3DButtonVariant.Violet -> MindButtonPalette(Color(0xFFE9D5FF), Color(0xFFD8B4FE), Color(0xFF7C3AED), Color(0xFF240B47), Color(0xFFA78BFA))
     Mind3DButtonVariant.Lemon -> MindButtonPalette(ButterYellowLight, ButterYellowPrimary, Button3DShadowYellow, Color(0xFF451A03), Color(0xFFFACC15))
-    Mind3DButtonVariant.Gold -> MindButtonPalette(LogoGoldLight, LogoGold, Button3DShadowGold, Color(0xFF2E1901), Color(0xFFFFD54F))
-    Mind3DButtonVariant.Rose -> MindButtonPalette(Color(0xFFFB7185), Color(0xFFF43F5E), Color(0xFFBE123C), Color.White, Color(0xFFFDA4AF))
-    Mind3DButtonVariant.Turquoise -> MindButtonPalette(Color(0xFF2DD4BF), Color(0xFF0D9488), Color(0xFF0F766E), Color.White, Color(0xFF5EEAD4))
-    Mind3DButtonVariant.Danger -> MindButtonPalette(Color(0xFFEF4444), Color(0xFFDC2626), Color(0xFF991B1B), Color.White, Color(0xFFF87171))
+    Mind3DButtonVariant.Gold -> MindButtonPalette(LogoGoldLight, Color(0xFFF5C954), Button3DShadowGold, Color(0xFF2E1901), Color(0xFFFFD54F))
+    Mind3DButtonVariant.Rose -> MindButtonPalette(Color(0xFFFECDD3), Color(0xFFFDA4AF), Color(0xFFE11D48), Color(0xFF4C0519), Color(0xFFFB7185))
+    Mind3DButtonVariant.Turquoise -> MindButtonPalette(Color(0xFF99F6E4), Color(0xFF5EEAD4), Color(0xFF0D9488), Color(0xFF042F2E), Color(0xFF2DD4BF))
+    Mind3DButtonVariant.Danger -> MindButtonPalette(Color(0xFFFECACA), Color(0xFFFCA5A5), Color(0xFFDC2626), Color(0xFF7F1D1D), Color(0xFFF87171))
     Mind3DButtonVariant.Neutral -> MindButtonPalette(Color(0xFFFFFFFF), Color(0xFFF1F5F9), Button3DShadowNeutral, Color(0xFF0F172A), Color(0xFF94A3B8))
 }
 

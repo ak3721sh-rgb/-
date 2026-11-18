@@ -119,7 +119,8 @@ data class MentorBookEntity(
     val contentVersion: String = "1.0",
     val isOfflineSaved: Boolean = true,
     val isContentComplete: Boolean = false,
-    val lastUpdatedAt: Long = System.currentTimeMillis()
+    val lastUpdatedAt: Long = System.currentTimeMillis(),
+    val subjectCategory: String = "ارتباط ذهن و ذهن"
 )
 
 @Entity(tableName = "book_pages")
@@ -133,7 +134,8 @@ data class BookPageEntity(
     val bodyText: String,
     val techniqueBox: String? = null,
     val reflectionExercise: String? = null,
-    val isSourcePlaceholder: Boolean = false
+    val isSourcePlaceholder: Boolean = false,
+    val contentOrigin: String = "SCIENTIFIC_SUPPLEMENT" // "MENTOR_AUTHORED", "SCIENTIFIC_SUPPLEMENT", "UNDER_COMPLETION"
 )
 
 @Entity(tableName = "reading_progress")
@@ -204,4 +206,13 @@ data class ContentMetadataEntity(
     val remoteFeedUrl: String = "",
     val apkDownloadUrl: String = "",
     val notes: String = "نسخه پایه آفلاین — آماده همگام‌سازی و دریافت متن رسمی جزوه‌ها"
+)
+
+@Entity(tableName = "diagnostic_logs")
+data class DiagnosticLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val tag: String,
+    val message: String,
+    val severity: String = "INFO", // "INFO", "WARN", "ERROR"
+    val timestamp: Long = System.currentTimeMillis()
 )

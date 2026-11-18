@@ -77,7 +77,8 @@ class ExampleRobolectricTest {
         assertEquals(16, book1Pages.size)
         assertEquals(14, book2Pages.size)
         assertEquals(4, book5Pages.size)
-        assertTrue(book2Pages.all { it.isSourcePlaceholder && it.bodyText.contains("پیشنهادی ـ نیازمند تأیید مدرس") })
+        assertTrue(book2Pages.all { it.isSourcePlaceholder && it.bodyText.contains("محتوا در حال تکمیل است") && it.contentOrigin == "SCIENTIFIC_SUPPLEMENT" })
+        assertTrue(InitialDataSeed.getMentorBooks().all { it.subjectCategory in InitialDataSeed.COURSE_SUBJECT_CATEGORIES })
         assertEquals(25, InitialDataSeed.getFlashcards().size)
         assertEquals(8, InitialDataSeed.getChapters().size)
         assertEquals(12, InitialDataSeed.getLessons().size)
@@ -306,8 +307,8 @@ class ExampleRobolectricTest {
     @Test
     fun `AppUpdateManager validates HTTPS URLs rejects AI Studio URLs and compares versionCode accurately`() = runBlocking {
         assertEquals("com.aistudio.mindconnection.akbar", BuildConfig.APPLICATION_ID)
-        assertEquals(4, BuildConfig.VERSION_CODE)
-        assertEquals("1.3", BuildConfig.VERSION_NAME)
+        assertEquals(5, BuildConfig.VERSION_CODE)
+        assertEquals("1.4", BuildConfig.VERSION_NAME)
 
         assertFalse(AppUpdateManager.isValidPublicHttpsUrl(""))
         assertFalse(AppUpdateManager.isValidPublicHttpsUrl("http://mind.ir/app.apk"))
@@ -315,42 +316,53 @@ class ExampleRobolectricTest {
         assertFalse(AppUpdateManager.isValidPublicHttpsUrl("https://localhost/app.apk"))
         assertFalse(AppUpdateManager.isValidPublicHttpsUrl("https://ais-dev-demo.us-east1.run.app/app.apk"))
         assertFalse(AppUpdateManager.isValidPublicHttpsUrl("https://ais-pre-demo.us-east1.run.app/app.apk"))
-        assertTrue(AppUpdateManager.isValidPublicHttpsUrl("https://github.com/akbar/mindconnection/releases/download/v1.3/MindConnection-Akbar-v1.3.apk"))
+        assertTrue(AppUpdateManager.isValidPublicHttpsUrl("https://github.com/ak3721sh-rgb/-/releases/download/v1.4/MindConnection-Akbar-v1.4.apk"))
 
         val updateJson = """
             {
-              "versionCode": 5,
-              "versionName": "1.4",
-              "releaseDate": "2026-11-18",
-              "changelog": "بهبود آزمون‌ها و درس‌های جدید",
-              "apkUrl": "https://mindconnection.ir/releases/mind-v1.4.apk",
+              "versionCode": 6,
+              "versionName": "1.5",
+              "releaseDate": "2026-12-01",
+              "changelog": "محتوای تکمیلی و بازی‌های جدید",
+              "apkUrl": "https://mindconnection.ir/releases/mind-v1.5.apk",
               "sha256": "abc123"
             }
         """.trimIndent()
-        val available = AppUpdateManager.parseManifestJson(updateJson, installedVersionCode = 4, installedVersionName = "1.3")
+        val available = AppUpdateManager.parseManifestJson(updateJson, installedVersionCode = 5, installedVersionName = "1.4")
         assertTrue(available is UpdateCheckResult.UpdateAvailable)
-        assertEquals(5, (available as UpdateCheckResult.UpdateAvailable).manifest.versionCode)
-        assertEquals("1.4", available.manifest.versionName)
-        assertEquals("2026-11-18", available.manifest.releaseDate)
+        assertEquals(6, (available as UpdateCheckResult.UpdateAvailable).manifest.versionCode)
+        assertEquals("1.5", available.manifest.versionName)
+        assertEquals("2026-12-01", available.manifest.releaseDate)
 
         val sameJson = """
             {
-              "versionCode": 4,
-              "versionName": "1.3",
+              "versionCode": 5,
+              "versionName": "1.4",
               "changelog": "نسخه فعلی",
-              "apkUrl": "https://mindconnection.ir/releases/mind-v1.3.apk"
+              "apkUrl": "https://mindconnection.ir/releases/mind-v1.4.apk"
             }
         """.trimIndent()
-        val upToDate = AppUpdateManager.parseManifestJson(sameJson, installedVersionCode = 4, installedVersionName = "1.3")
+        val upToDate = AppUpdateManager.parseManifestJson(sameJson, installedVersionCode = 5, installedVersionName = "1.4")
         assertTrue(upToDate is UpdateCheckResult.UpToDate)
 
         val badJson = "{not-valid"
-        val invalid = AppUpdateManager.parseManifestJson(badJson, installedVersionCode = 4, installedVersionName = "1.3")
+        val invalid = AppUpdateManager.parseManifestJson(badJson, installedVersionCode = 5, installedVersionName = "1.4")
         assertTrue(invalid is UpdateCheckResult.Unavailable)
 
         val offlineResult = AppUpdateManager.checkForUpdate(isNetworkConnected = false, configuredApkOrManifestUrl = "")
         assertTrue(offlineResult is UpdateCheckResult.Unavailable)
         assertTrue((offlineResult as UpdateCheckResult.Unavailable).reason.contains("منتشر نشده است"))
+
+        val repoPair = AppUpdateManager.extractGitHubRepo("https://github.com/ak3721sh-rgb/-/releases/download/v1.4/MindConnection-Akbar-v1.4.apk")
+        assertEquals("ak3721sh-rgb" to "-", repoPair)
+        assertEquals(
+            "https://github.com/ak3721sh-rgb/-/releases",
+            AppUpdateManager.githubReleasesPageUrl("https://github.com/ak3721sh-rgb/-/releases/download/v1.4/MindConnection-Akbar-v1.4.apk")
+        )
+        assertTrue(AppUpdateManager.isReleaseTagNewer("v1.5", "1.4"))
+        assertTrue(AppUpdateManager.isReleaseTagNewer("1.4.1", "1.4"))
+        assertFalse(AppUpdateManager.isReleaseTagNewer("v1.4", "1.4"))
+        assertFalse(AppUpdateManager.isReleaseTagNewer("v1.3", "1.4"))
     }
 
     @Test
@@ -367,5 +379,63 @@ class ExampleRobolectricTest {
         assertEquals(false, reloaded.hapticsEnabled)
         assertEquals(true, reloaded.reducedMotionEnabled)
         assertEquals(21f, reloaded.readerFontSizeSp, 0.01f)
+    }
+
+    @Test
+    fun `MIGRATION_3_4 adds new columns and diagnostic_logs table without dropping existing rows`() {
+        val dbFile = context.getDatabasePath("test_mig_v3_to_v4.db")
+        dbFile.delete()
+        val rawDb = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+        rawDb.execSQL("CREATE TABLE mentor_books (id INTEGER PRIMARY KEY NOT NULL, title TEXT NOT NULL)")
+        rawDb.execSQL("INSERT INTO mentor_books (id, title) VALUES (1, 'کتاب آزمایشی')")
+        rawDb.execSQL("CREATE TABLE book_pages (id INTEGER PRIMARY KEY NOT NULL, bookId INTEGER NOT NULL, bodyText TEXT NOT NULL)")
+        rawDb.execSQL("INSERT INTO book_pages (id, bookId, bodyText) VALUES (10, 1, 'متن یادداشت دانشجو')")
+
+        val supportDb = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory()
+            .create(
+                androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                    .name(dbFile.absolutePath)
+                    .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(4) {
+                        override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldV: Int, newV: Int) {}
+                    })
+                    .build()
+            )
+            .writableDatabase
+        rawDb.close()
+
+        AppDatabase.MIGRATION_3_4.migrate(supportDb)
+
+        supportDb.query("SELECT subjectCategory, title FROM mentor_books WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("ارتباط ذهن و ذهن", c.getString(0))
+            assertEquals("کتاب آزمایشی", c.getString(1))
+        }
+        supportDb.query("SELECT contentOrigin, bodyText FROM book_pages WHERE id = 10").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("SCIENTIFIC_SUPPLEMENT", c.getString(0))
+            assertEquals("متن یادداشت دانشجو", c.getString(1))
+        }
+        supportDb.query("SELECT name FROM sqlite_master WHERE type='table' AND name='diagnostic_logs'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        supportDb.close()
+        dbFile.delete()
+    }
+
+    @Test
+    fun `flashcard session preferences persist category index and shuffle mode across restarts`() {
+        val prefs = context.getSharedPreferences("mind_flashcard_prefs", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+
+        val vm1 = com.example.ui.viewmodel.MainViewModel(ApplicationProvider.getApplicationContext())
+        vm1.saveFlashcardIndex("TECHNIQUE", 4)
+        vm1.setFlashcardShuffleMode(true)
+        vm1.markFlashcardSeen(7)
+
+        val vm2 = com.example.ui.viewmodel.MainViewModel(ApplicationProvider.getApplicationContext())
+        assertEquals(4, vm2.getFlashcardIndex("TECHNIQUE"))
+        assertTrue(vm2.isFlashcardShuffleMode())
+        assertTrue(7 in vm2.getSeenFlashcardIds())
     }
 }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.SportsEsports
@@ -41,6 +42,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.GAME_EDUCATIONAL_DISCLAIMER
 import com.example.ui.components.Mind3DButton
 import com.example.ui.components.Mind3DButtonVariant
 import com.example.ui.components.Mind3DCard
@@ -61,6 +66,7 @@ import com.example.ui.components.Mind3DTopAppBar
 import com.example.ui.theme.LemonYellowGlow
 import com.example.ui.theme.LemonYellowPrimary
 import com.example.ui.theme.LogoGold
+import com.example.ui.theme.MintPrimary
 import com.example.ui.theme.OrangeLightPrimary
 import com.example.ui.theme.OrangeLightSoft
 import com.example.ui.theme.SkyBluePrimary
@@ -102,7 +108,7 @@ private val MindCognitiveGames = listOf(
         category = "حافظه کاری و بازخوانی الگو",
         description = "به‌خاطرسپاری الگوی کاشی‌های روشن‌شده در ماتریس شبکه و بازسازی آن",
         icon = Icons.Default.GridOn,
-        color = LemonYellowPrimary
+        color = Color(0xFFB45309)
     ),
     GameMeta(
         id = "game_tunnel",
@@ -126,7 +132,7 @@ private val MindCognitiveGames = listOf(
         category = "آزمایش دونفره و تله‌پاتی زنر",
         description = "پروتکل ۵ نماد زنر، ثبت حدس‌های خام دریافت‌کننده و مقایسه با احتمال تصادفی ۲۰٪",
         icon = Icons.Default.SwapHoriz,
-        color = LogoGold
+        color = Color(0xFFA16207)
     ),
     GameMeta(
         id = "game_emotion",
@@ -166,7 +172,7 @@ private val MindCognitiveGames = listOf(
         category = "سرعت پردازش عصبی (میلی‌ثانیه)",
         description = "پاسخ سریع به تغییر سیگنال نوری و ثبت میانگین زمان عکس‌العمل",
         icon = Icons.Default.Bolt,
-        color = LemonYellowPrimary
+        color = Color(0xFFB45309)
     ),
     GameMeta(
         id = "game_story",
@@ -182,6 +188,13 @@ private val MindCognitiveGames = listOf(
 fun GamesHubScreen(viewModel: MainViewModel) {
     BackHandler {
         viewModel.navigateBack()
+    }
+
+    val gameResults by viewModel.gameResults.collectAsState()
+    val bestByGameId = remember(gameResults) {
+        gameResults.groupBy { it.gameId }.mapValues { (_, list) ->
+            Pair(list.maxOf { it.score }, list.size)
+        }
     }
 
     Scaffold(
@@ -220,10 +233,35 @@ fun GamesHubScreen(viewModel: MainViewModel) {
                         .fillMaxSize()
                         .testTag("games_lazy_column"),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Educational non-diagnostic notice banner
+                    item {
+                        Mind3DCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            tone = Mind3DCardTone.WarmIvory,
+                            shapeRadius = 16.dp,
+                            extrusionDepth = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = SkyBluePrimary, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = GAME_EDUCATIONAL_DISCLAIMER,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextPrimaryLight,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+
                     // Cockpit Featured Hero Card
                     item {
+                        val flightBest = bestByGameId["game_flight"]
                         Mind3DCard(
                             modifier = Modifier.fillMaxWidth(),
                             tone = Mind3DCardTone.IceCobalt,
@@ -238,7 +276,7 @@ fun GamesHubScreen(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                         Box(
                                             modifier = Modifier
                                                 .size(46.dp)
@@ -262,7 +300,11 @@ fun GamesHubScreen(viewModel: MainViewModel) {
                                                 color = TextPrimaryLight
                                             )
                                             Text(
-                                                text = "شبیه‌ساز کابین پرواز جهت سنجش تمرکز و واکنش",
+                                                text = if (flightBest != null) {
+                                                    "بهترین رکورد: ${flightBest.first} XP (${flightBest.second} نوبت)"
+                                                } else {
+                                                    "شبیه‌ساز کابین پرواز جهت سنجش تمرکز و واکنش"
+                                                },
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = SkyBluePrimary,
                                                 fontWeight = FontWeight.Bold
@@ -274,7 +316,7 @@ fun GamesHubScreen(viewModel: MainViewModel) {
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 Text(
-                                    text = "هدایت تعاملی نشانگر روی اهداف هوایی، مدیریت هشدارها، حفظ کانون توجه و اندازه‌گیری دقیق دقت و زمان واکنش (صرفاً شبیه‌سازی آموزشی تمرکز ذهنی).",
+                                    text = "هدایت تعاملی نشانگر روی اهداف هوایی، دوری از تلاطم جوی، انتخاب سختی و اندازه‌گیری دقیق دقت و زمان واکنش.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondaryLight,
                                     lineHeight = 20.sp
@@ -301,6 +343,7 @@ fun GamesHubScreen(viewModel: MainViewModel) {
                             rowGames.forEach { game ->
                                 GameListItem(
                                     game = game,
+                                    bestInfo = bestByGameId[game.id],
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.navigateTo(ScreenDestination.GamePlay(game.id)) }
                                 )
@@ -319,6 +362,7 @@ fun GamesHubScreen(viewModel: MainViewModel) {
 @Composable
 private fun GameListItem(
     game: GameMeta,
+    bestInfo: Pair<Int, Int>?,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -335,7 +379,7 @@ private fun GameListItem(
     Mind3DCard(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 114.dp),
+            .defaultMinSize(minHeight = 118.dp),
         tone = tone,
         shapeRadius = 20.dp,
         extrusionDepth = 4.dp,
@@ -344,7 +388,7 @@ private fun GameListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 114.dp)
+                .defaultMinSize(minHeight = 118.dp)
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -370,7 +414,7 @@ private fun GameListItem(
                     text = game.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = TextPrimaryLight
                 )
                 Text(
                     text = game.category,
@@ -381,17 +425,26 @@ private fun GameListItem(
                 Text(
                     text = game.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = TextSecondaryLight,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (bestInfo != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "بهترین امتیاز: ${bestInfo.first} XP • ${bestInfo.second} دور",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MintPrimary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(SkyBlueSoft),
                 contentAlignment = Alignment.Center

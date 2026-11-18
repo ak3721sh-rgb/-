@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -178,7 +179,7 @@ fun DownloadHubScreen(viewModel: MainViewModel) {
                         }
 
                         DetailRow("نسخه نصب‌شده روی گوشی:", "نسخه ${BuildConfig.VERSION_NAME} (کد ${BuildConfig.VERSION_CODE})")
-                        DetailRow("نسخه محتوای آفلاین:", metadata?.contentVersion ?: "1.2.0")
+                        DetailRow("نسخه محتوای آفلاین:", metadata?.contentVersion ?: "1.4.0")
                         DetailRow("سازگاری با اندروید:", "اندروید ۸ تا ۱۶ (منطبق با Play Policy)")
 
                         Mind3DButton(
@@ -266,15 +267,35 @@ fun DownloadHubScreen(viewModel: MainViewModel) {
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(result.message, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = TextPrimaryLight)
                                             }
+                                            if (!result.directApkUrl.isNullOrBlank()) {
+                                                Mind3DButton(
+                                                    text = "دانلود مستقیم فایل APK در مرورگر",
+                                                    onClick = {
+                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.directApkUrl))
+                                                        try {
+                                                            context.startActivity(intent)
+                                                            actionFeedback = "دانلود مستقیم آغاز شد — فایل در مرورگر باز شد."
+                                                        } catch (_: Exception) {
+                                                            actionFeedback = "مرورگر مناسبی برای باز کردن لینک پیدا نشد."
+                                                        }
+                                                    },
+                                                    variant = Mind3DButtonVariant.Mint,
+                                                    icon = Icons.Default.Download,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .testTag("download_verified_apk_btn")
+                                                )
+                                            }
                                         }
                                     }
                                     is UpdateCheckResult.Unavailable -> {
-                                        Box(
+                                        Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(14.dp))
                                                 .background(Color.White.copy(alpha = 0.85f))
-                                                .padding(14.dp)
+                                                .padding(14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Text(
                                                 text = result.reason,
@@ -283,6 +304,23 @@ fun DownloadHubScreen(viewModel: MainViewModel) {
                                                 fontWeight = FontWeight.Bold,
                                                 lineHeight = 20.sp
                                             )
+                                            if (!result.fallbackWebUrl.isNullOrBlank()) {
+                                                Mind3DButton(
+                                                    text = "باز کردن صفحه انتشارهای گیت‌هاب (Releases)",
+                                                    onClick = {
+                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.fallbackWebUrl))
+                                                        try {
+                                                            context.startActivity(intent)
+                                                            actionFeedback = "صفحه انتشارهای گیت‌هاب باز شد."
+                                                        } catch (_: Exception) {
+                                                            actionFeedback = "مرورگر مناسبی برای باز کردن لینک پیدا نشد."
+                                                        }
+                                                    },
+                                                    variant = Mind3DButtonVariant.Gold,
+                                                    icon = Icons.Default.Public,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -300,25 +338,19 @@ fun DownloadHubScreen(viewModel: MainViewModel) {
                         }
 
                         if (hasValidUrl) {
-                            Mind3DButton(
-                                text = "باز کردن لینک دانلود فایل APK در مرورگر",
-                                onClick = {
-                                    if (!viewModel.isNetworkConnected()) {
-                                        actionFeedback = "اتصال اینترنت فعال نیست. لطفاً ابتدا اینترنت دستگاه را متصل کنید یا آدرس را کپی نمایید."
-                                    } else {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(configuredUrl))
-                                        try {
-                                            context.startActivity(intent)
-                                            actionFeedback = "دانلود آغاز شد — نشانی مستقیم در مرورگر گوشی باز شد."
-                                        } catch (_: Exception) {
-                                            actionFeedback = "مرورگر یا برنامه مناسبی برای باز کردن لینک پیدا نشد."
-                                        }
-                                    }
-                                },
-                                variant = Mind3DButtonVariant.Mint,
-                                icon = Icons.Default.Download,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            val checkedUnavailable = (updateCheckState as? UpdateCheckUiState.Result)?.result is UpdateCheckResult.Unavailable
+                            if (!checkedUnavailable) {
+                                Mind3DButton(
+                                    text = "بررسی سلامت لینک و دانلود سریع",
+                                    onClick = {
+                                        actionFeedback = null
+                                        viewModel.checkForAppUpdate()
+                                    },
+                                    variant = Mind3DButtonVariant.Mint,
+                                    icon = Icons.Default.Download,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                             Mind3DButton(
                                 text = "کپی آدرس دانلود برای ارسال",
                                 onClick = {

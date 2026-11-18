@@ -15,6 +15,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify full Android project was pushed
+        run: |
+          if [ ! -f app/build.gradle.kts ] || [ ! -f settings.gradle.kts ]; then
+            echo "ERROR: Full Android project files (app/build.gradle.kts, settings.gradle.kts) are missing in this repository."
+            echo "Please push the full project from Google AI Studio (Push to GitHub) instead of uploading single files manually."
+            exit 1
+          fi
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -37,30 +45,37 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Prepare debug keystore for CI build
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
-          if [ -f debug.keystore.base64 ]; then
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > debug.keystore
+          elif [ -f debug.keystore.base64 ]; then
             base64 -d debug.keystore.base64 > debug.keystore
           elif [ ! -f debug.keystore ]; then
             keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
+      - name: Run Unit & UI Tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+
       - name: Build Debug APK
         run: gradle :app:assembleDebug --no-daemon
 
       - name: Prepare named APK file
-        run: cp app/build/outputs/apk/debug/app-debug.apk MindConnection-Akbar-v1.3.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk MindConnection-Akbar-v1.4.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MindConnection-Akbar-v1.3
-          path: MindConnection-Akbar-v1.3.apk
+          name: MindConnection-Akbar-v1.4
+          path: MindConnection-Akbar-v1.4.apk
 
       - name: Publish APK to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.3
-          name: "هنر ارتباط ذهن‌ها - نسخه 1.3"
-          body: "نسخه 1.3 (versionCode 4) - ساخته شده به‌صورت خودکار برای دانلود و نصب روی اندروید."
-          files: MindConnection-Akbar-v1.3.apk
+          tag_name: v1.4
+          name: "هنر ارتباط ذهن‌ها - نسخه 1.4"
+          body: "نسخه 1.4 (versionCode 5) - ارتقای سیستم دکمه‌ها، کتابخانه دسته‌بندی‌شده، بازسازی ۱۲ بازی شناختی و ردیابی مطالعه واقعی."
+          files: MindConnection-Akbar-v1.4.apk
           fail_on_unmatched_files: true

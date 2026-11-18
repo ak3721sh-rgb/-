@@ -13,6 +13,7 @@ import com.example.data.model.BookPageEntity
 import com.example.data.model.BookPageNoteEntity
 import com.example.data.model.ChapterEntity
 import com.example.data.model.ContentMetadataEntity
+import com.example.data.model.DiagnosticLogEntity
 import com.example.data.model.ExperienceLogEntity
 import com.example.data.model.FlashcardEntity
 import com.example.data.model.GameResultEntity
@@ -40,11 +41,13 @@ import kotlinx.coroutines.withContext
 
 sealed class ScreenDestination {
     data object Splash : ScreenDestination()
+    data object AboutCourse : ScreenDestination()
     data object Portal : ScreenDestination()
     data object InstructorProfile : ScreenDestination()
     data object BooksLibrary : ScreenDestination()
     data class BookReader(val bookId: Int, val pageNumber: Int = 1) : ScreenDestination()
     data object Chapters : ScreenDestination()
+    data object CourseSyllabus : ScreenDestination()
     data class ChapterDetail(val chapterId: Int) : ScreenDestination()
     data class LessonDetail(val lessonId: Int) : ScreenDestination()
     data object SpiritualSection : ScreenDestination()
@@ -136,6 +139,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .getMetadata()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val diagnosticLogs: StateFlow<List<DiagnosticLogEntity>> = database.diagnosticLogDao()
+        .getRecentLogs()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val flashcardPrefs = application.getSharedPreferences("mind_flashcard_prefs", Context.MODE_PRIVATE)
+    private val readingPrefs = application.getSharedPreferences("mind_reading_prefs", Context.MODE_PRIVATE)
+
+    private val _flashcardRevision = MutableStateFlow(0)
+    val flashcardRevision: StateFlow<Int> = _flashcardRevision.asStateFlow()
+
     private val _activationState = MutableStateFlow<String?>(null)
     val activationState: StateFlow<String?> = _activationState.asStateFlow()
 
@@ -164,6 +177,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isNetworkConnected = isNetworkConnected(),
                 configuredApkOrManifestUrl = configuredUrl
             )
+            when (result) {
+                is UpdateCheckResult.Unavailable -> logDiagnosticEvent(
+                    tag = "UpdateCheck",
+                    message = result.reason,
+                    severity = if (result.isOffline) "INFO" else "WARN"
+                )
+                else -> Unit
+            }
             _updateCheckState.value = UpdateCheckUiState.Result(result)
         }
     }
@@ -235,17 +256,108 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastSavedPageKey = pageKey
         viewModelScope.launch(Dispatchers.IO) {
             val current = database.readingProgressDao().getProgressDirect()
-            val updated = (current ?: ReadingProgressEntity()).copy(
+            val updated = (current ?: com.example.data.local.InitialDataSeed.getInitialReadingProgress()).copy(
                 lastReadBookId = bookId,
                 lastReadChapterNumber = chapterNum,
                 lastReadPageNumber = pageNum,
                 lastActivityTitle = title,
-                completedPagesCount = maxOf((current?.completedPagesCount ?: 0), pageNum),
-                totalReadingMinutes = (current?.totalReadingMinutes ?: 0) + 1
+                completedPagesCount = maxOf((current?.completedPagesCount ?: 0), pageNum)
             )
             database.readingProgressDao().saveProgress(updated)
-            database.userProfileDao().addXp(10)
+            database.userProfileDao().addXp(5)
         }
+    }
+
+    fun recordReadingDwellSeconds(elapsedSeconds: Int) {
+        if (elapsedSeconds <= 0) return
+        val accumulated = readingPrefs.getInt("accumulated_seconds", 0) + elapsedSeconds
+        val earnedMinutes = accumulated / 60
+        val remainderSeconds = accumulated % 60
+        readingPrefs.edit().putInt("accumulated_seconds", remainderSeconds).apply()
+        if (earnedMinutes > 0) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val current = database.readingProgressDao().getProgressDirect()
+                    ?: com.example.data.local.InitialDataSeed.getInitialReadingProgress()
+                database.readingProgressDao().saveProgress(
+                    current.copy(totalReadingMinutes = current.totalReadingMinutes + earnedMinutes)
+                )
+                database.userProfileDao().addXp(earnedMinutes * 4)
+            }
+        }
+    }
+
+    fun toggleBookOfflineSaved(bookId: Int, saveOffline: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.mentorBookDao().updateOfflineSaved(bookId, saveOffline)
+        }
+    }
+
+    fun logDiagnosticEvent(tag: String, message: String, severity: String = "INFO") {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.diagnosticLogDao().insertLog(
+                DiagnosticLogEntity(tag = tag, message = message, severity = severity)
+            )
+        }
+    }
+
+    fun clearDiagnosticLogs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.diagnosticLogDao().clearLogs()
+        }
+    }
+
+    fun resetUserProgressData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val maintenance = database.progressMaintenanceDao()
+            maintenance.resetLessonCompletions()
+            maintenance.resetFlashcardMastery()
+            maintenance.deleteAllGameResults()
+            maintenance.deleteAllExperienceLogs()
+            maintenance.deleteAllPredictionEntries()
+            maintenance.resetUserProfileStats()
+            database.readingProgressDao().saveProgress(
+                com.example.data.local.InitialDataSeed.getInitialReadingProgress().copy(
+                    completedPagesCount = 0,
+                    completedExercisesCount = 0,
+                    totalReadingMinutes = 0
+                )
+            )
+            readingPrefs.edit().clear().apply()
+            flashcardPrefs.edit().clear().apply()
+            lastSavedPageKey = null
+            _flashcardRevision.value += 1
+            logDiagnosticEvent("ProgressReset", "آمار پیشرفت، سابقه بازی‌ها و مرور کارت‌ها توسط کاربر بازنشانی شد.", "INFO")
+        }
+    }
+
+    // Persistent Flashcard Session Preferences
+    fun getFlashcardIndex(category: String): Int =
+        flashcardPrefs.getInt("cat_idx_$category", 0)
+
+    fun saveFlashcardIndex(category: String, index: Int) {
+        flashcardPrefs.edit().putInt("cat_idx_$category", index.coerceAtLeast(0)).apply()
+        _flashcardRevision.value += 1
+    }
+
+    fun getSeenFlashcardIds(): Set<Int> {
+        val raw = flashcardPrefs.getStringSet("seen_card_ids", emptySet()).orEmpty()
+        return raw.mapNotNull { it.toIntOrNull() }.toSet()
+    }
+
+    fun markFlashcardSeen(cardId: Int) {
+        val current = flashcardPrefs.getStringSet("seen_card_ids", emptySet()).orEmpty().toMutableSet()
+        if (current.add(cardId.toString())) {
+            flashcardPrefs.edit().putStringSet("seen_card_ids", current).apply()
+            _flashcardRevision.value += 1
+        }
+    }
+
+    fun isFlashcardShuffleMode(): Boolean =
+        flashcardPrefs.getBoolean("shuffle_mode", false)
+
+    fun setFlashcardShuffleMode(enabled: Boolean) {
+        flashcardPrefs.edit().putBoolean("shuffle_mode", enabled).apply()
+        _flashcardRevision.value += 1
     }
 
     fun getPagesForBook(bookId: Int): Flow<List<BookPageEntity>> =

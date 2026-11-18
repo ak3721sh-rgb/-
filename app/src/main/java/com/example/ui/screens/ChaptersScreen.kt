@@ -34,10 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.ChapterEntity
+import com.example.ui.components.Mind3DButton
+import com.example.ui.components.Mind3DButtonVariant
 import com.example.ui.components.Mind3DCard
 import com.example.ui.components.Mind3DCardTone
 import com.example.ui.components.Mind3DIconVariant
@@ -122,6 +125,17 @@ fun ChaptersScreen(viewModel: MainViewModel) {
                                     )
                                 }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Mind3DButton(
+                                text = "نمایش سرفصل‌ها و کارت همه درس‌ها",
+                                onClick = { viewModel.navigateTo(ScreenDestination.CourseSyllabus) },
+                                variant = Mind3DButtonVariant.Sky,
+                                icon = Icons.Default.MenuBook,
+                                height = 48.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("chapters_open_syllabus_btn")
+                            )
                         }
                     }
                 }

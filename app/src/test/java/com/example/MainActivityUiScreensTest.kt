@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -11,7 +12,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +24,13 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "fa-rIR-w411dp-h891dp-xxhdpi")
 class MainActivityUiScreensTest {
+
+    @Before
+    fun resetSessionPrefs() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        ctx.getSharedPreferences("mind_flashcard_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        ctx.getSharedPreferences("mind_reading_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+    }
 
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
@@ -141,7 +151,7 @@ class MainActivityUiScreensTest {
         )
         composeRule.onNodeWithContentDescription("بازگشت").performClick() // Back to Library
         composeRule.waitForIdle()
-        composeRule.onAllNodes(hasText("پیش‌نویس ساختاریافته", substring = true))[0]
+        composeRule.onAllNodes(hasText("محتوا در حال تکمیل است", substring = true))[0]
             .performScrollTo()
             .assertIsDisplayed()
         composeRule.onNodeWithContentDescription("بازگشت").performClick() // Back to Portal
@@ -197,7 +207,7 @@ class MainActivityUiScreensTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("download_check_update_btn").performScrollTo().performClick()
         composeRule.waitForIdle()
-        waitForText("به‌روزرسانی در دسترس نیست")
+        waitForText("مسیر رسمی دریافت و به‌روزرسانی آماده است")
         composeRule.onNodeWithContentDescription("بازگشت").performClick()
         composeRule.waitForIdle()
 
@@ -243,7 +253,15 @@ class MainActivityUiScreensTest {
         composeRule.onNodeWithText("دانلود سریع APK").assertIsDisplayed()
         composeRule.onNodeWithTag("quick_download_button").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        waitForText("لینک دانلود عمومی هنوز منتشر نشده است")
+        composeRule.onNodeWithTag("splash_update_dialog").assertIsDisplayed()
+        composeRule.waitUntil(timeoutMillis = 8_000) {
+            composeRule.onAllNodes(hasText("دانلود مستقیم فایل APK با مرورگر", substring = true)).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasText("هنوز هیچ نسخه APK", substring = true)).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasText("هنوز فایل نصبی", substring = true)).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasText("هنوز در گیت‌هاب منتشر نشده", substring = true)).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasText("برقراری ارتباط با سرور", substring = true)).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasText("اتصال اینترنت دستگاه برقرار نیست", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("بستن").performClick()
         composeRule.waitForIdle()
 
@@ -294,8 +312,8 @@ class MainActivityUiScreensTest {
             .performScrollTo()
             .performClick()
         composeRule.waitForIdle()
-        waitForText("پیش‌نویس ساختاریافته")
-        composeRule.onAllNodes(hasText("پیش‌نویس ساختاریافته", substring = true))[0]
+        waitForText("محتوا در حال تکمیل است")
+        composeRule.onAllNodes(hasText("محتوا در حال تکمیل است", substring = true))[0]
             .performScrollTo()
             .performClick()
         composeRule.waitForIdle()
@@ -347,5 +365,132 @@ class MainActivityUiScreensTest {
         composeRule.onNodeWithTag("flashcard_cat_ALL").performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("flashcard_flip_button").assertIsDisplayed()
+    }
+
+    @Test
+    fun `v1_4 about course library filters flashcards skip shuffle cockpit pause and stats reset work cleanly`() {
+        fun scrollIfNeeded(tag: String) = try {
+            composeRule.onNodeWithTag(tag).performScrollTo()
+        } catch (e: AssertionError) {
+            if (e.message?.contains("Scroll SemanticsAction") != true) throw e
+            composeRule.onNodeWithTag(tag)
+        }
+
+        composeRule.waitForIdle()
+
+        // 1. About Course screen via utility chip
+        scrollIfNeeded("home_about_course_chip").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("درباره دوره هنر ارتباط ذهن‌ها").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+
+        // 2. Books Library subject categories & offline toggle
+        scrollIfNeeded("home_sec_library").performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("library_category_chip_3").performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("library_category_chip_0").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+
+        // 3. Flashcards Smart Suggestion, Shuffle Toggle, and Skip
+        scrollIfNeeded("home_sec_flashcards").performClick()
+        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasTestTag("flashcard_shuffle_chip")).fetchSemanticsNodes().isNotEmpty()
+        }
+        scrollIfNeeded("flashcard_shuffle_chip").performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("flashcard_smart_today_btn").performClick()
+        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasTestTag("flashcard_skip_btn")).fetchSemanticsNodes().isNotEmpty()
+        }
+        scrollIfNeeded("flashcard_skip_btn").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("flashcard_back_to_categories").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+
+        // 4. Pilot Focus Flight cockpit start + pause
+        scrollIfNeeded("home_sec_games").performClick()
+        composeRule.waitForIdle()
+        try {
+            composeRule.onNodeWithText("ورود به کابین خلبانی").performScrollTo()
+        } catch (e: AssertionError) {
+            if (e.message?.contains("Scroll SemanticsAction") != true) throw e
+        }
+        composeRule.onNodeWithText("ورود به کابین خلبانی").performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("pilot_start_btn").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("pilot_pause_btn").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+
+        // 5. Progress Stats history chart + confirmed reset
+        scrollIfNeeded("home_sec_stats").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("stats_lazy_column").performScrollToNode(hasTestTag("progress_history_chart_card"))
+        composeRule.onNodeWithTag("progress_history_chart_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("stats_lazy_column").performScrollToNode(hasTestTag("stats_reset_button"))
+        composeRule.onNodeWithTag("stats_reset_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("stats_reset_confirm_btn").performClick()
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun `course syllabus LazyColumn screen displays chapters and clickable lesson cards from home and chapters`() {
+        fun scrollIfNeeded(tag: String) = try {
+            composeRule.onNodeWithTag(tag).performScrollTo()
+        } catch (e: AssertionError) {
+            if (e.message?.contains("Scroll SemanticsAction") != true) throw e
+            composeRule.onNodeWithTag(tag)
+        }
+
+        composeRule.waitForIdle()
+
+        // 1. Open CourseSyllabusScreen from Home chip
+        scrollIfNeeded("home_syllabus_chip").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("سرفصل‌های آموزشی دوره").assertIsDisplayed()
+        waitForText("نقشه کامل درس‌های «هنر ارتباط ذهن‌ها»")
+
+        // 2. Test filter chips inside LazyColumn
+        composeRule.onNodeWithTag("syllabus_lazy_column").performScrollToNode(hasTestTag("syllabus_filter_TECHNIQUE"))
+        composeRule.onNodeWithTag("syllabus_filter_TECHNIQUE").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("syllabus_filter_ALL").performClick()
+        composeRule.waitForIdle()
+
+        // 3. Scroll LazyColumn to clickable lesson card and open LessonDetailScreen
+        composeRule.onNodeWithTag("syllabus_lazy_column").performScrollToNode(hasTestTag("syllabus_lesson_card_101"))
+        composeRule.onNodeWithTag("syllabus_lesson_card_101").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        waitForText("ارزیابی سریع درس")
+
+        // Back to Syllabus, then back to Home
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("سرفصل‌های آموزشی دوره").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("بازگشت").performClick()
+        composeRule.waitForIdle()
+
+        // 4. Enter via Portal -> ChaptersScreen -> chapters_open_syllabus_btn
+        scrollIfNeeded("splash_enter_portal_button").performClick()
+        composeRule.waitForIdle()
+        scrollIfNeeded("portal_btn_chapters").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("chapters_open_syllabus_btn").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("سرفصل‌های آموزشی دوره").assertIsDisplayed()
     }
 }

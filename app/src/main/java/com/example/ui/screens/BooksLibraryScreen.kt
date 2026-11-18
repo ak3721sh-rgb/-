@@ -91,6 +91,13 @@ import com.example.ui.theme.TextSecondaryLight
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.ScreenDestination
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.testTag
+import com.example.data.local.InitialDataSeed
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BooksLibraryScreen(viewModel: MainViewModel) {
@@ -105,6 +112,7 @@ fun BooksLibraryScreen(viewModel: MainViewModel) {
     var showBundleDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedTab by remember { mutableStateOf("ALL") } // "ALL", "BOOKMARKS"
+    var selectedCategory by remember { mutableStateOf("همه موضوعات") }
 
     if (showBundleDialog) {
         StudentContentSyncDialog(
@@ -114,12 +122,20 @@ fun BooksLibraryScreen(viewModel: MainViewModel) {
         )
     }
 
-    val filteredBooks = remember(books, searchQuery) {
-        if (searchQuery.isBlank()) books
-        else books.filter {
-            it.title.contains(searchQuery, ignoreCase = true) ||
-                it.subtitle.contains(searchQuery, ignoreCase = true) ||
-                it.description.contains(searchQuery, ignoreCase = true)
+    val categories = remember(books) {
+        val dynamic = books.map { it.subjectCategory }.filter { it.isNotBlank() }
+        (InitialDataSeed.COURSE_SUBJECT_CATEGORIES + dynamic).distinct()
+    }
+
+    val filteredBooks = remember(books, searchQuery, selectedCategory) {
+        books.filter { book ->
+            val matchesCat = selectedCategory == "همه موضوعات" || book.subjectCategory == selectedCategory
+            val matchesQuery = searchQuery.isBlank() ||
+                book.title.contains(searchQuery, ignoreCase = true) ||
+                book.subtitle.contains(searchQuery, ignoreCase = true) ||
+                book.description.contains(searchQuery, ignoreCase = true) ||
+                book.subjectCategory.contains(searchQuery, ignoreCase = true)
+            matchesCat && matchesQuery
         }
     }
 
@@ -307,6 +323,23 @@ fun BooksLibraryScreen(viewModel: MainViewModel) {
                                 tone = Mind3DChipTone.Mint
                             )
                         }
+
+                        if (selectedTab == "ALL") {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 2.dp)
+                            ) {
+                                itemsIndexed(categories) { idx, cat ->
+                                    Mind3DChip(
+                                        text = cat,
+                                        isSelected = selectedCategory == cat,
+                                        onClick = { selectedCategory = cat },
+                                        tone = Mind3DChipTone.Turquoise,
+                                        testTag = "library_category_chip_$idx"
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -358,22 +391,38 @@ fun BooksLibraryScreen(viewModel: MainViewModel) {
                     }
                 } else {
                     val bookRows = filteredBooks.chunked(gridColumns)
-                    items(bookRows, key = { row -> "book_row_${row.joinToString("_") { it.id.toString() }}" }) { rowBooks ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            rowBooks.forEach { book ->
-                                BookCoverCard(
-                                    book = book,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = {
-                                        viewModel.navigateTo(ScreenDestination.BookReader(bookId = book.id, pageNumber = 1))
-                                    }
+                    if (bookRows.isEmpty()) {
+                        item {
+                            Mind3DCard(modifier = Modifier.fillMaxWidth(), tone = Mind3DCardTone.WarmIvory) {
+                                Text(
+                                    text = "کتابی در این دسته‌بندی یا عبارت جستجو یافت نشد.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondaryLight,
+                                    modifier = Modifier.padding(18.dp)
                                 )
                             }
-                            repeat(gridColumns - rowBooks.size) {
-                                Spacer(modifier = Modifier.weight(1f))
+                        }
+                    } else {
+                        items(bookRows, key = { row -> "book_row_${row.joinToString("_") { it.id.toString() }}" }) { rowBooks ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                rowBooks.forEach { book ->
+                                    BookCoverCard(
+                                        book = book,
+                                        modifier = Modifier.weight(1f),
+                                        onToggleOffline = {
+                                            viewModel.toggleBookOfflineSaved(book.id, !book.isOfflineSaved)
+                                        },
+                                        onClick = {
+                                            viewModel.navigateTo(ScreenDestination.BookReader(bookId = book.id, pageNumber = 1))
+                                        }
+                                    )
+                                }
+                                repeat(gridColumns - rowBooks.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -427,6 +476,7 @@ fun BooksLibraryScreen(viewModel: MainViewModel) {
 private fun BookCoverCard(
     book: MentorBookEntity,
     modifier: Modifier = Modifier,
+    onToggleOffline: () -> Unit,
     onClick: () -> Unit
 ) {
     val (coverBgGradient, accentColor, iconVec) = when (book.coverAccentColor) {
@@ -454,13 +504,13 @@ private fun BookCoverCard(
     }
 
     val statusText = when {
-        book.isContentComplete -> "تکمیل‌شده"
+        book.isContentComplete -> "متن کامل آماده"
         book.id == 1 -> "۱۶ سرفصل آماده مطالعه"
-        else -> "پیش‌نویس ساختاریافته"
+        else -> "محتوا در حال تکمیل است"
     }
 
     Mind3DCard(
-        modifier = modifier.height(248.dp),
+        modifier = modifier.defaultMinSize(minHeight = 250.dp),
         tone = cardTone,
         onClick = onClick,
         shapeRadius = 22.dp,
@@ -468,10 +518,10 @@ private fun BookCoverCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (book.id == 1) {
                 Box(
@@ -522,6 +572,22 @@ private fun BookCoverCard(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(accentColor.copy(alpha = 0.12f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = book.subjectCategory,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextPrimaryLight,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleSmall,
@@ -536,8 +602,8 @@ private fun BookCoverCard(
                 Text(
                     text = book.subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = accentColor,
-                    fontWeight = FontWeight.Bold,
+                    color = TextSecondaryLight,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -552,24 +618,45 @@ private fun BookCoverCard(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White.copy(alpha = 0.88f))
+                        .background(Color.White.copy(alpha = 0.90f))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = statusText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (book.isContentComplete || book.id == 1) MintPrimary else TextSecondaryLight,
+                        color = if (book.isContentComplete || book.id == 1) MintPrimary else TextPrimaryLight,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text(
-                    text = "${book.totalPages} بخش",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "${book.totalPages} بخش",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryLight
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (book.isOfflineSaved) Color(0xFFDCFCE7) else Color(0xFFF1F5F9))
+                            .clickable { onToggleOffline() }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("book_offline_toggle_${book.id}")
+                    ) {
+                        Text(
+                            text = if (book.isOfflineSaved) "آفلاین ✓" else "ذخیره آفلاین",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (book.isOfflineSaved) MintPrimary else TextSecondaryLight
+                        )
+                    }
+                }
             }
         }
     }

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,15 +95,20 @@ private data class FlashcardCategoryMeta(
     val cards: List<FlashcardEntity>
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FlashcardsScreen(viewModel: MainViewModel) {
     val allCards by viewModel.flashcards.collectAsState()
+    val revision by viewModel.flashcardRevision.collectAsState()
     val interaction = LocalInteractionController.current
 
     var selectedCategoryKey by remember { mutableStateOf<String?>(null) }
-    val categoryIndexMap = remember { mutableStateMapOf<String, Int>() }
-    val seenCardIds = remember { mutableStateMapOf<Int, Boolean>() }
+    var isShuffleMode by remember { mutableStateOf(viewModel.isFlashcardShuffleMode()) }
+    var shuffleSeed by remember { mutableIntStateOf(1) }
+    var activeCardIndex by remember { mutableIntStateOf(0) }
     var isFlipped by remember { mutableStateOf(false) }
+
+    val seenIds = remember(revision) { viewModel.getSeenFlashcardIds() }
 
     BackHandler {
         if (selectedCategoryKey != null) {
@@ -161,16 +170,54 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
         raw.filter { it.cards.isNotEmpty() }
     }
 
+    // Smart priority card suggestion: due/difficult first, then unseen, else first non-mastered
+    val smartSuggestedCard = remember(allCards, seenIds) {
+        val now = System.currentTimeMillis()
+        allCards.filter { it.isMarkedDifficult || it.errorCount > 0 }
+            .maxByOrNull { it.errorCount }
+            ?: allCards.filter { !it.isMastered && it.nextReviewDate <= now }.firstOrNull()
+            ?: allCards.firstOrNull { it.id !in seenIds }
+            ?: allCards.firstOrNull { !it.isMastered }
+            ?: allCards.firstOrNull()
+    }
+
     val activeCategory = categories.find { it.key == selectedCategoryKey }
-    val filteredCards = activeCategory?.cards.orEmpty()
-    val rawIndex = selectedCategoryKey?.let { categoryIndexMap[it] } ?: 0
-    val safeCardIndex = if (filteredCards.isNotEmpty()) rawIndex.coerceIn(0, filteredCards.size - 1) else 0
+    val filteredCards = remember(activeCategory, isShuffleMode, shuffleSeed) {
+        val base = activeCategory?.cards.orEmpty()
+        if (isShuffleMode && base.size > 1) {
+            base.shuffled(kotlin.random.Random(shuffleSeed))
+        } else {
+            base
+        }
+    }
+
+    val safeCardIndex = if (filteredCards.isNotEmpty()) activeCardIndex.coerceIn(0, filteredCards.size - 1) else 0
     val currentCard = filteredCards.getOrNull(safeCardIndex)
 
-    LaunchedEffect(currentCard?.id) {
+    LaunchedEffect(currentCard?.id, selectedCategoryKey) {
         if (currentCard != null && selectedCategoryKey != null) {
-            seenCardIds[currentCard.id] = true
+            viewModel.markFlashcardSeen(currentCard.id)
         }
+    }
+
+    fun selectCategory(catKey: String, jumpToCardId: Int? = null) {
+        selectedCategoryKey = catKey
+        val targetList = categories.find { it.key == catKey }?.cards.orEmpty()
+        val startIdx = if (jumpToCardId != null) {
+            targetList.indexOfFirst { it.id == jumpToCardId }.takeIf { it >= 0 } ?: 0
+        } else {
+            viewModel.getFlashcardIndex(catKey).coerceIn(0, (targetList.size - 1).coerceAtLeast(0))
+        }
+        activeCardIndex = startIdx
+        viewModel.saveFlashcardIndex(catKey, startIdx)
+        isFlipped = false
+    }
+
+    fun moveToIndex(catKey: String, nextIdx: Int) {
+        val clamped = nextIdx.coerceIn(0, (filteredCards.size - 1).coerceAtLeast(0))
+        activeCardIndex = clamped
+        viewModel.saveFlashcardIndex(catKey, clamped)
+        isFlipped = false
     }
 
     val masteredCount = allCards.count { it.isMastered }
@@ -273,6 +320,72 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                             }
                         }
 
+                        // Smart Suggestion Card for Today + Persistent Shuffle Option
+                        if (smartSuggestedCard != null) {
+                            Mind3DCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                tone = Mind3DCardTone.Gold,
+                                shapeRadius = 20.dp,
+                                extrusionDepth = 3.5.dp
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFFA16207), modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "پیشنهاد هوشمند کارت برای تمرین امروز",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimaryLight
+                                        )
+                                    }
+                                    Text(
+                                        text = "«${smartSuggestedCard.frontTitle}» — اولویت‌دار بر اساس مرور لایتنر و کارت‌های دیده‌نشده.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondaryLight,
+                                        lineHeight = 20.sp
+                                    )
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Mind3DButton(
+                                            text = "مرور کارت پیشنهادی",
+                                            onClick = {
+                                                if (isShuffleMode) {
+                                                    isShuffleMode = false
+                                                    viewModel.setFlashcardShuffleMode(false)
+                                                }
+                                                selectCategory("ALL", jumpToCardId = smartSuggestedCard.id)
+                                            },
+                                            variant = Mind3DButtonVariant.Gold,
+                                            icon = Icons.Default.AutoAwesome,
+                                            height = 48.dp,
+                                            testTag = "flashcard_smart_today_btn"
+                                        )
+                                        Mind3DChip(
+                                            text = if (isShuffleMode) "مرور تصادفی: روشن" else "مرور تصادفی",
+                                            isSelected = isShuffleMode,
+                                            icon = Icons.Default.Shuffle,
+                                            onClick = {
+                                                val next = !isShuffleMode
+                                                isShuffleMode = next
+                                                viewModel.setFlashcardShuffleMode(next)
+                                                if (next) shuffleSeed++
+                                            },
+                                            tone = Mind3DChipTone.Violet,
+                                            height = 48.dp,
+                                            testTag = "flashcard_shuffle_chip"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         Mind3DCard(
                             modifier = Modifier.fillMaxWidth(),
                             tone = Mind3DCardTone.WarmIvory,
@@ -280,18 +393,14 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                             extrusionDepth = 3.dp
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SkyBluePrimary, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "یک دسته را برای شروع مرور انتخاب کنید",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimaryLight
-                                    )
-                                }
                                 Text(
-                                    text = "جایگاه مطالعه شما در هر دسته به صورت خودکار حفظ می‌شود تا هنگام بازگشت از همان کارت ادامه دهید.",
+                                    text = "یک دسته را برای شروع مرور انتخاب کنید",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimaryLight
+                                )
+                                Text(
+                                    text = "جایگاه مطالعه و کارت‌های دیده‌شده در هر دسته به‌صورت دائمی روی دستگاه شما ذخیره می‌شوند.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondaryLight,
                                     lineHeight = 20.sp
@@ -312,13 +421,10 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                             categories.forEach { cat ->
                                 FlashcardCategoryCard(
                                     meta = cat,
-                                    savedIndex = categoryIndexMap[cat.key] ?: 0,
-                                    seenCount = cat.cards.count { seenCardIds[it.id] == true },
+                                    savedIndex = viewModel.getFlashcardIndex(cat.key),
+                                    seenCount = cat.cards.count { it.id in seenIds },
                                     modifier = Modifier.fillMaxWidth(),
-                                    onClick = {
-                                        selectedCategoryKey = cat.key
-                                        isFlipped = false
-                                    }
+                                    onClick = { selectCategory(cat.key) }
                                 )
                             }
                         } else {
@@ -330,13 +436,10 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                                     pair.forEach { cat ->
                                         FlashcardCategoryCard(
                                             meta = cat,
-                                            savedIndex = categoryIndexMap[cat.key] ?: 0,
-                                            seenCount = cat.cards.count { seenCardIds[it.id] == true },
+                                            savedIndex = viewModel.getFlashcardIndex(cat.key),
+                                            seenCount = cat.cards.count { it.id in seenIds },
                                             modifier = Modifier.weight(1f),
-                                            onClick = {
-                                                selectedCategoryKey = cat.key
-                                                isFlipped = false
-                                            }
+                                            onClick = { selectCategory(cat.key) }
                                         )
                                     }
                                     if (pair.size == 1) {
@@ -361,7 +464,7 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                         animVal
                     }
 
-                    val seenInCategory = filteredCards.count { seenCardIds[it.id] == true }
+                    val seenInCategory = filteredCards.count { it.id in seenIds }
                     val remainingInCategory = (filteredCards.size - seenInCategory).coerceAtLeast(0)
 
                     Column(
@@ -371,30 +474,51 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Top Deck Status Bar
-                        Row(
+                        // Top Deck Status Bar + Shuffle Chip
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Mind3DChip(
-                                text = "بازگشت به دسته‌ها",
-                                isSelected = false,
-                                icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                onClick = {
-                                    selectedCategoryKey = null
-                                    isFlipped = false
-                                },
-                                tone = Mind3DChipTone.Sky,
-                                height = 38.dp,
-                                testTag = "flashcard_back_to_categories"
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Mind3DChip(
+                                    text = "بازگشت به دسته‌ها",
+                                    isSelected = false,
+                                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                    onClick = {
+                                        selectedCategoryKey = null
+                                        isFlipped = false
+                                    },
+                                    tone = Mind3DChipTone.Sky,
+                                    height = 40.dp,
+                                    testTag = "flashcard_back_to_categories"
+                                )
+                                Mind3DChip(
+                                    text = if (isShuffleMode) "تصادفی" else "ترتیبی",
+                                    isSelected = isShuffleMode,
+                                    icon = Icons.Default.Shuffle,
+                                    onClick = {
+                                        val next = !isShuffleMode
+                                        isShuffleMode = next
+                                        viewModel.setFlashcardShuffleMode(next)
+                                        if (next) shuffleSeed++
+                                        moveToIndex(activeCategory.key, 0)
+                                    },
+                                    tone = Mind3DChipTone.Violet,
+                                    height = 40.dp,
+                                    testTag = "flashcard_deck_shuffle_chip"
+                                )
+                            }
 
                             Text(
                                 text = "دیده‌شده: $seenInCategory • باقیمانده: $remainingInCategory",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = TextSecondaryLight
+                                color = TextSecondaryLight,
+                                modifier = Modifier.align(Alignment.CenterVertically)
                             )
                         }
 
@@ -551,18 +675,17 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Action Bar 2: Review / Mastered
+                            // Action Bar 2: Review / Skip / Mastered
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Mind3DButton(
-                                    text = "نیاز به مرور",
+                                    text = "نیاز به تمرین",
                                     onClick = {
                                         viewModel.updateFlashcardMastery(currentCard, false)
                                         if (safeCardIndex < filteredCards.size - 1) {
-                                            categoryIndexMap[activeCategory.key] = safeCardIndex + 1
-                                            isFlipped = false
+                                            moveToIndex(activeCategory.key, safeCardIndex + 1)
                                         }
                                     },
                                     variant = Mind3DButtonVariant.Orange,
@@ -574,12 +697,28 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                                 )
 
                                 Mind3DButton(
-                                    text = "دانستم (+۲۰ XP)",
+                                    text = "رد کردن",
+                                    onClick = {
+                                        if (safeCardIndex < filteredCards.size - 1) {
+                                            moveToIndex(activeCategory.key, safeCardIndex + 1)
+                                        }
+                                    },
+                                    variant = Mind3DButtonVariant.Neutral,
+                                    icon = Icons.Default.SkipNext,
+                                    enabled = safeCardIndex < filteredCards.size - 1,
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .weight(0.85f)
+                                        .testTag("flashcard_skip_btn"),
+                                    height = 46.dp
+                                )
+
+                                Mind3DButton(
+                                    text = "بلدم (+۲۰)",
                                     onClick = {
                                         viewModel.updateFlashcardMastery(currentCard, true)
                                         if (safeCardIndex < filteredCards.size - 1) {
-                                            categoryIndexMap[activeCategory.key] = safeCardIndex + 1
-                                            isFlipped = false
+                                            moveToIndex(activeCategory.key, safeCardIndex + 1)
                                         }
                                     },
                                     variant = Mind3DButtonVariant.Emerald,
@@ -602,8 +741,7 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                                     text = "کارت قبلی",
                                     onClick = {
                                         if (safeCardIndex > 0) {
-                                            categoryIndexMap[activeCategory.key] = safeCardIndex - 1
-                                            isFlipped = false
+                                            moveToIndex(activeCategory.key, safeCardIndex - 1)
                                         }
                                     },
                                     variant = Mind3DButtonVariant.Neutral,
@@ -619,8 +757,7 @@ fun FlashcardsScreen(viewModel: MainViewModel) {
                                     text = "کارت بعدی",
                                     onClick = {
                                         if (safeCardIndex < filteredCards.size - 1) {
-                                            categoryIndexMap[activeCategory.key] = safeCardIndex + 1
-                                            isFlipped = false
+                                            moveToIndex(activeCategory.key, safeCardIndex + 1)
                                         }
                                     },
                                     variant = Mind3DButtonVariant.Sky,

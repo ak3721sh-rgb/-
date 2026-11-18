@@ -1,11 +1,11 @@
 {
   "packageId": "com.aistudio.mindconnection.akbar",
-  "versionCode": 4,
-  "versionName": "1.3",
-  "releaseDate": "2026-11-17",
-  "fileName": "MindConnection-Akbar-v1.3.apk",
-  "apkUrl": "",
-  "sha256": "24de70cbca8d5349cd3f31f8e838401168751db001f9c18ce67396024f9774a4",
-  "sizeLabel": "19.44 MiB (20,383,690 bytes)",
-  "changelog": "نسخه ۱.۳ — دکمه دانلود سریع APK در بالای صفحه اصلی، ساختار استاندارد بررسی به‌روزرسانی، و حفظ کامل اطلاعات و پیشرفت هنرجویان."
+  "versionCode": 5,
+  "versionName": "1.4",
+  "releaseDate": "2026-11-18",
+  "fileName": "MindConnection-Akbar-v1.4.apk",
+  "apkUrl": "https://github.com/ak3721sh-rgb/-/releases/download/v1.4/MindConnection-Akbar-v1.4.apk",
+  "sha256": "8ac5cb8747e6f9c212c07cb0a82e7e917a3c0e049e8b4a55d77a6e9dc4961e57",
+  "sizeLabel": "19.6 MB (20,596,694 bytes)",
+  "changelog": "نسخه ۱.۴ — صفحه جدید سرفصل‌های دوره و کارت درس‌ها، ارتقای سیستم دکمه‌ها، کتابخانه دسته‌بندی‌شده، بازسازی ۱۲ بازی شناختی، کشف هوشمند GitHub Releases و رفع خطای ۴۰۴ دانلود سریع APK."
 }

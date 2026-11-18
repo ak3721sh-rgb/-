@@ -80,15 +80,15 @@ private data class MindIconPalette(
 )
 
 private fun resolveIconPalette(variant: Mind3DIconVariant): MindIconPalette = when (variant) {
-    Mind3DIconVariant.Sky -> MindIconPalette(SkyBlueLight, SkyBluePrimary, Color(0xFF0369A1), Color.White, Color(0xFF38BDF8))
-    Mind3DIconVariant.Peach -> MindIconPalette(PeachLight, PeachPrimary, Color(0xFFC2410C), Color.White, Color(0xFFFB923C))
-    Mind3DIconVariant.Mint -> MindIconPalette(MintLight, MintPrimary, Color(0xFF15803D), Color.White, Color(0xFF4ADE80))
-    Mind3DIconVariant.Violet -> MindIconPalette(SpiritualVioletLight, SpiritualVioletPrimary, Color(0xFF6D28D9), Color.White, Color(0xFFA78BFA))
-    Mind3DIconVariant.Lemon -> MindIconPalette(Color(0xFFFDE047), Color(0xFFEAB308), Color(0xFFA16207), Color(0xFF451A03), Color(0xFFFACC15))
-    Mind3DIconVariant.Gold -> MindIconPalette(LogoGoldLight, LogoGold, Color(0xFF854D0E), Color(0xFF2E1901), Color(0xFFFFD54F))
-    Mind3DIconVariant.Rose -> MindIconPalette(Color(0xFFFB7185), Color(0xFFF43F5E), Color(0xFFBE123C), Color.White, Color(0xFFFDA4AF))
-    Mind3DIconVariant.Turquoise -> MindIconPalette(Color(0xFF2DD4BF), Color(0xFF0D9488), Color(0xFF0F766E), Color.White, Color(0xFF5EEAD4))
-    Mind3DIconVariant.Danger -> MindIconPalette(Color(0xFFEF4444), Color(0xFFDC2626), Color(0xFF991B1B), Color.White, Color(0xFFF87171))
+    Mind3DIconVariant.Sky -> MindIconPalette(Color(0xFFBAE6FD), Color(0xFF7DD3FC), Color(0xFF0284C7), Color(0xFF0C2D48), Color(0xFF38BDF8))
+    Mind3DIconVariant.Peach -> MindIconPalette(Color(0xFFFED7AA), Color(0xFFFDBA74), Color(0xFFEA580C), Color(0xFF3B1704), Color(0xFFFB923C))
+    Mind3DIconVariant.Mint -> MindIconPalette(Color(0xFFBBF7D0), Color(0xFF86EFAC), Color(0xFF16A34A), Color(0xFF062E18), Color(0xFF4ADE80))
+    Mind3DIconVariant.Violet -> MindIconPalette(Color(0xFFE9D5FF), Color(0xFFD8B4FE), Color(0xFF7C3AED), Color(0xFF240B47), Color(0xFFA78BFA))
+    Mind3DIconVariant.Lemon -> MindIconPalette(Color(0xFFFEF08A), Color(0xFFFDE047), Color(0xFFCA8A04), Color(0xFF451A03), Color(0xFFFACC15))
+    Mind3DIconVariant.Gold -> MindIconPalette(LogoGoldLight, Color(0xFFF5C954), Color(0xFF854D0E), Color(0xFF2E1901), Color(0xFFFFD54F))
+    Mind3DIconVariant.Rose -> MindIconPalette(Color(0xFFFECDD3), Color(0xFFFDA4AF), Color(0xFFE11D48), Color(0xFF4C0519), Color(0xFFFDA4AF))
+    Mind3DIconVariant.Turquoise -> MindIconPalette(Color(0xFF99F6E4), Color(0xFF5EEAD4), Color(0xFF0D9488), Color(0xFF042F2E), Color(0xFF5EEAD4))
+    Mind3DIconVariant.Danger -> MindIconPalette(Color(0xFFFECACA), Color(0xFFFCA5A5), Color(0xFFDC2626), Color(0xFF7F1D1D), Color(0xFFF87171))
     Mind3DIconVariant.Neutral -> MindIconPalette(Color(0xFFFFFFFF), Color(0xFFF1F5F9), Color(0xFF94A3B8), Color(0xFF0F172A), Color(0xFF94A3B8))
 }
 

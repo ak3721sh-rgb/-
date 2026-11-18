@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudOff
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.BuildConfig
 import com.example.R
+import com.example.data.sync.AppUpdateManager
 import com.example.data.sync.UpdateCheckResult
 import com.example.ui.components.Mind3DAvatarButton
 import com.example.ui.components.Mind3DButton
@@ -309,6 +311,7 @@ fun SplashScreen(viewModel: MainViewModel) {
     val interaction = LocalInteractionController.current
     val scrollState = rememberScrollState()
     val metadata by viewModel.contentMetadata.collectAsState()
+    val readingProgress by viewModel.readingProgress.collectAsState()
     val updateCheckState by viewModel.updateCheckState.collectAsState()
 
     var currentCardIndex by remember { mutableIntStateOf(0) }
@@ -481,10 +484,13 @@ fun SplashScreen(viewModel: MainViewModel) {
 
                                 is UpdateCheckResult.Unavailable -> {
                                     Text(
-                                        text = if (metadata?.apkDownloadUrl.isNullOrBlank()) {
-                                            "لینک دانلود عمومی هنوز منتشر نشده است"
-                                        } else {
-                                            "به‌روزرسانی در دسترس نیست"
+                                        text = when {
+                                            metadata?.apkDownloadUrl.isNullOrBlank() ->
+                                                "لینک دانلود عمومی هنوز منتشر نشده است"
+                                            res.isNotFound404 ->
+                                                "فایل نصبی هنوز در گیت‌هاب منتشر نشده است"
+                                            else ->
+                                                "به‌روزرسانی در دسترس نیست"
                                         },
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
@@ -500,6 +506,42 @@ fun SplashScreen(viewModel: MainViewModel) {
                                         color = TextSecondaryLight,
                                         lineHeight = 20.sp
                                     )
+                                    val fallbackUrl = metadata?.apkDownloadUrl?.trim().orEmpty()
+                                    if (AppUpdateManager.isValidPublicHttpsUrl(fallbackUrl) && res.isOffline) {
+                                        Mind3DButton(
+                                            text = "تلاش باز کردن لینک در مرورگر",
+                                            onClick = {
+                                                try {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+                                                    dialogBrowserFeedback = "لینک مستقیم فایل APK در مرورگر گوشی باز شد."
+                                                } catch (_: Exception) {
+                                                    dialogBrowserFeedback = "مرورگر مناسبی برای باز کردن لینک یافت نشد."
+                                                }
+                                            },
+                                            variant = Mind3DButtonVariant.Sky,
+                                            icon = Icons.Default.Download,
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            height = 48.dp
+                                        )
+                                    } else if (!res.fallbackWebUrl.isNullOrBlank()) {
+                                        Mind3DButton(
+                                            text = "باز کردن صفحه انتشارها در گیت‌هاب",
+                                            onClick = {
+                                                try {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(res.fallbackWebUrl)))
+                                                    dialogBrowserFeedback = "صفحه انتشارهای گیت‌هاب (Releases) در مرورگر باز شد."
+                                                } catch (_: Exception) {
+                                                    dialogBrowserFeedback = "مرورگر مناسبی برای باز کردن لینک یافت نشد."
+                                                }
+                                            },
+                                            variant = Mind3DButtonVariant.Mint,
+                                            icon = Icons.Default.Public,
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            height = 48.dp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -682,12 +724,6 @@ fun SplashScreen(viewModel: MainViewModel) {
                             color = TextPrimaryLight,
                             textAlign = TextAlign.Center
                         )
-                        Text(
-                            text = "لمس نشان یا تصویر برای معرفی مدرس",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TurquoisePrimary,
-                            textAlign = TextAlign.Center
-                        )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -741,7 +777,7 @@ fun SplashScreen(viewModel: MainViewModel) {
                         .fillMaxWidth()
                         .background(Brush.linearGradient(currentCard.bgGradient))
                         .border(1.4.dp, currentCard.borderColor, RoundedCornerShape(22.dp))
-                        .padding(if (isCompactScreen) 14.dp else 18.dp)
+                        .padding(if (isCompactScreen) 12.dp else 14.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -757,11 +793,11 @@ fun SplashScreen(viewModel: MainViewModel) {
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = null,
                                     tint = Color(0xFFB45309),
-                                    modifier = Modifier.size(19.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "کارت الهام‌بخش (${currentCard.id} از ۲۵)",
+                                    text = "کارت الهام‌بخش (${currentCard.id}/۲۵)",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimaryLight
@@ -791,19 +827,19 @@ fun SplashScreen(viewModel: MainViewModel) {
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         val isLongQuote = currentCard.text.length > 78
                         Text(
                             text = currentCard.text,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = if (isCompactScreen) 16.sp else 17.5.sp,
-                                lineHeight = 28.sp
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = if (isCompactScreen) 15.sp else 16.sp,
+                                lineHeight = 25.sp
                             ),
                             fontWeight = FontWeight.Bold,
                             color = TextPrimaryLight,
                             textAlign = TextAlign.Center,
-                            maxLines = if (quoteExpanded || !isLongQuote) 5 else 2,
+                            maxLines = if (quoteExpanded || !isLongQuote) 4 else 2,
                             overflow = TextOverflow.Ellipsis
                         )
 
@@ -814,24 +850,24 @@ fun SplashScreen(viewModel: MainViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = SkyBluePrimary,
                                 modifier = Modifier
-                                    .padding(top = 4.dp)
+                                    .padding(top = 3.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable { quoteExpanded = !quoteExpanded }
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(Color.White.copy(alpha = 0.92f))
-                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = currentCard.source,
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0369A1)
                             )
@@ -840,7 +876,65 @@ fun SplashScreen(viewModel: MainViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            if (readingProgress != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                val rp = readingProgress!!
+                Mind3DCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    tone = Mind3DCardTone.Mint,
+                    shapeRadius = 18.dp,
+                    extrusionDepth = 3.dp,
+                    testTag = "home_continue_reading_card",
+                    onClick = {
+                        viewModel.navigateTo(
+                            ScreenDestination.BookReader(
+                                bookId = rp.lastReadBookId,
+                                pageNumber = rp.lastReadPageNumber
+                            )
+                        )
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MintPrimary.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.LibraryBooks, contentDescription = null, tint = MintPrimary)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ادامه مطالعه • کتاب ${rp.lastReadBookId} (صفحه ${rp.lastReadPageNumber})",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MintPrimary
+                            )
+                            Text(
+                                text = rp.lastActivityTitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextPrimaryLight,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "ورود به صفحه آخر",
+                            tint = MintPrimary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // 3. PRIMARY PROMINENT PORTAL ENTRY BUTTON
             Mind3DButton(
@@ -852,7 +946,7 @@ fun SplashScreen(viewModel: MainViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("splash_enter_portal_button"),
-                height = 64.dp
+                height = 60.dp
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -935,6 +1029,22 @@ fun SplashScreen(viewModel: MainViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Mind3DChip(
+                    text = "درباره دوره",
+                    onClick = { viewModel.navigateTo(ScreenDestination.AboutCourse) },
+                    isSelected = false,
+                    icon = Icons.Default.Lightbulb,
+                    tone = Mind3DChipTone.Turquoise,
+                    testTag = "home_about_course_chip"
+                )
+                Mind3DChip(
+                    text = "سرفصل‌ها و درس‌ها",
+                    onClick = { viewModel.navigateTo(ScreenDestination.CourseSyllabus) },
+                    isSelected = false,
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    tone = Mind3DChipTone.Gold,
+                    testTag = "home_syllabus_chip"
+                )
                 Mind3DChip(
                     text = "معرفی مدرس",
                     onClick = { viewModel.navigateTo(ScreenDestination.InstructorProfile) },

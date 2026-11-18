@@ -12,6 +12,7 @@ import com.example.data.model.BookPageEntity
 import com.example.data.model.BookPageNoteEntity
 import com.example.data.model.ChapterEntity
 import com.example.data.model.ContentMetadataEntity
+import com.example.data.model.DiagnosticLogEntity
 import com.example.data.model.ExperienceLogEntity
 import com.example.data.model.FlashcardEntity
 import com.example.data.model.GameResultEntity
@@ -186,6 +187,9 @@ interface MentorBookDao {
 
     @Query("UPDATE mentor_books SET isUnlocked = 1")
     suspend fun unlockAllBooks()
+
+    @Query("UPDATE mentor_books SET isOfflineSaved = :saved WHERE id = :bookId")
+    suspend fun updateOfflineSaved(bookId: Int, saved: Boolean)
 }
 
 @Dao
@@ -294,4 +298,40 @@ interface ContentMetadataDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveMetadata(metadata: ContentMetadataEntity)
+}
+
+@Dao
+interface DiagnosticLogDao {
+    @Query("SELECT * FROM diagnostic_logs ORDER BY timestamp DESC LIMIT 100")
+    fun getRecentLogs(): Flow<List<DiagnosticLogEntity>>
+
+    @Query("SELECT * FROM diagnostic_logs ORDER BY timestamp DESC LIMIT 100")
+    suspend fun getRecentLogsDirect(): List<DiagnosticLogEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLog(log: DiagnosticLogEntity)
+
+    @Query("DELETE FROM diagnostic_logs")
+    suspend fun clearLogs()
+}
+
+@Dao
+interface ProgressMaintenanceDao {
+    @Query("UPDATE lessons SET isCompleted = 0")
+    suspend fun resetLessonCompletions()
+
+    @Query("UPDATE flashcards SET level = 1, errorCount = 0, isMastered = 0, isMarkedDifficult = 0")
+    suspend fun resetFlashcardMastery()
+
+    @Query("DELETE FROM game_results")
+    suspend fun deleteAllGameResults()
+
+    @Query("DELETE FROM experience_logs")
+    suspend fun deleteAllExperienceLogs()
+
+    @Query("DELETE FROM prediction_entries")
+    suspend fun deleteAllPredictionEntries()
+
+    @Query("UPDATE user_profile SET xp = 0, level = 1, streakDays = 0 WHERE id = 1")
+    suspend fun resetUserProfileStats()
 }

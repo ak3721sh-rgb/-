@@ -151,7 +151,7 @@ fun ContentPublishingTab(viewModel: MainViewModel) {
                     color = SkyBluePrimary
                 )
                 Text(
-                    text = "متن دقیق فایل Word/PDF کتاب اول یا کتاب‌های بعدی را می‌توانید مستقیماً اینجا وارد و منتشر کنید تا بدون نیاز به ساخت APK جدید ذخیره شود.",
+                    text = "متن رسمی کتاب اول یا کتاب‌های بعدی را می‌توانید مستقیماً اینجا وارد و منتشر کنید تا بدون نیاز به ساخت APK جدید ذخیره شود.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondaryLight
                 )
@@ -415,6 +415,7 @@ fun ContentPublishingTab(viewModel: MainViewModel) {
 @Composable
 fun ReleaseAndSecurityTab(viewModel: MainViewModel) {
     val metadata by viewModel.contentMetadata.collectAsState()
+    val diagnosticLogs by viewModel.diagnosticLogs.collectAsState()
     var apkUrl by remember(metadata) { mutableStateOf(metadata?.apkDownloadUrl.orEmpty()) }
     var feedUrl by remember(metadata) { mutableStateOf(metadata?.remoteFeedUrl.orEmpty()) }
     var urlMessage by remember { mutableStateOf<String?>(null) }
@@ -647,6 +648,67 @@ fun ReleaseAndSecurityTab(viewModel: MainViewModel) {
                         style = MaterialTheme.typography.bodySmall,
                         color = if (otpStatusMessage!!.contains("تأیید شد")) MintPrimary else TextPrimaryLight,
                         fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // Offline vs Server-Dependent Transparency Card
+        Mind3DCard(modifier = Modifier.fillMaxWidth(), tone = Mind3DCardTone.Sky) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "شفافیت قابلیت‌های آفلاین و نیازمند سرور",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = SkyBluePrimary
+                )
+                Text(
+                    text = "• تمام بخش‌های آفلاین (بدون نیاز به اینترنت): مطالعه کامل ۸ کتاب و فصل‌ها، ذخیره یادداشت و نشانک، فلش‌کارت‌های لایتنر، ۱۲ بازی شناختی، نمودار پیشرفت، تولید کلید فعال‌سازی امضاشده (HMAC-SHA256) و قفل رمز مدرس.\n• نیازمند زیرساخت سرور / HTTPS: میزبانی فایل APK برای دانلود آنلاین، دریافت خودکار بسته JSON از نشانی راه دور، و ارسال پیامک انبوه از راه دور (این بخش‌ها با آدرس رسمی GitHub یا میزبان شما متصل می‌شوند).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextPrimaryLight,
+                    lineHeight = 21.sp
+                )
+            }
+        }
+
+        // Local Diagnostic Log Viewer
+        Mind3DCard(
+            modifier = Modifier.fillMaxWidth(),
+            tone = Mind3DCardTone.WarmIvory,
+            testTag = "instructor_diagnostics_card"
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "گزارش رخدادها و خطاهای محلی (${diagnosticLogs.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryLight
+                    )
+                }
+                if (diagnosticLogs.isEmpty()) {
+                    Text(
+                        text = "تا این لحظه هیچ خطا یا رخداد فنی ثبت نشده است.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondaryLight
+                    )
+                } else {
+                    diagnosticLogs.take(10).forEach { log ->
+                        Text(
+                            text = "[${log.severity}] ${log.tag}: ${log.message}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (log.severity == "ERROR" || log.severity == "WARN") Color(0xFFC2410C) else TextSecondaryLight
+                        )
+                    }
+                    Mind3DButton(
+                        text = "پاک کردن گزارش‌های محلی",
+                        onClick = { viewModel.clearDiagnosticLogs() },
+                        variant = Mind3DButtonVariant.Neutral,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 46.dp
                     )
                 }
             }

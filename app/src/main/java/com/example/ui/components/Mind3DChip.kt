@@ -80,15 +80,15 @@ private data class MindChipPalette(
 )
 
 private fun resolveChipPalette(tone: MindChipTone): MindChipPalette = when (tone) {
-    MindChipTone.Sky -> MindChipPalette(Color(0xFF38BDF8), Color(0xFF0288D1), Color(0xFF0369A1), Color.White, Color(0xFF38BDF8))
-    MindChipTone.Peach -> MindChipPalette(Color(0xFFFB923C), Color(0xFFEA580C), Color(0xFFC2410C), Color.White, Color(0xFFFB923C))
-    MindChipTone.Mint -> MindChipPalette(Color(0xFF4ADE80), Color(0xFF16A34A), Color(0xFF15803D), Color.White, Color(0xFF4ADE80))
-    MindChipTone.Lemon -> MindChipPalette(Color(0xFFFDE047), Color(0xFFEAB308), Color(0xFFA16207), Color(0xFF451A03), Color(0xFFEAB308))
-    MindChipTone.Violet -> MindChipPalette(Color(0xFFA78BFA), Color(0xFF7C3AED), Color(0xFF6D28D9), Color.White, Color(0xFFA78BFA))
-    MindChipTone.Rose -> MindChipPalette(Color(0xFFFB7185), Color(0xFFF43F5E), Color(0xFFBE123C), Color.White, Color(0xFFFDA4AF))
-    MindChipTone.Turquoise -> MindChipPalette(Color(0xFF2DD4BF), Color(0xFF0D9488), Color(0xFF0F766E), Color.White, Color(0xFF2DD4BF))
-    MindChipTone.Gold -> MindChipPalette(Color(0xFFFFD54F), Color(0xFFD4AF37), Color(0xFF854D0E), Color(0xFF2E1901), Color(0xFFFFD54F))
-    MindChipTone.Danger -> MindChipPalette(Color(0xFFEF4444), Color(0xFFDC2626), Color(0xFF991B1B), Color.White, Color(0xFFF87171))
+    MindChipTone.Sky -> MindChipPalette(Color(0xFFBAE6FD), Color(0xFF7DD3FC), Color(0xFF0284C7), Color(0xFF0C2D48), Color(0xFF38BDF8))
+    MindChipTone.Peach -> MindChipPalette(Color(0xFFFED7AA), Color(0xFFFDBA74), Color(0xFFEA580C), Color(0xFF3B1704), Color(0xFFFB923C))
+    MindChipTone.Mint -> MindChipPalette(Color(0xFFBBF7D0), Color(0xFF86EFAC), Color(0xFF16A34A), Color(0xFF062E18), Color(0xFF4ADE80))
+    MindChipTone.Lemon -> MindChipPalette(Color(0xFFFEF08A), Color(0xFFFDE047), Color(0xFFCA8A04), Color(0xFF451A03), Color(0xFFEAB308))
+    MindChipTone.Violet -> MindChipPalette(Color(0xFFE9D5FF), Color(0xFFD8B4FE), Color(0xFF7C3AED), Color(0xFF240B47), Color(0xFFA78BFA))
+    MindChipTone.Rose -> MindChipPalette(Color(0xFFFECDD3), Color(0xFFFDA4AF), Color(0xFFE11D48), Color(0xFF4C0519), Color(0xFFFB7185))
+    MindChipTone.Turquoise -> MindChipPalette(Color(0xFF99F6E4), Color(0xFF5EEAD4), Color(0xFF0D9488), Color(0xFF042F2E), Color(0xFF2DD4BF))
+    MindChipTone.Gold -> MindChipPalette(Color(0xFFFFE89E), Color(0xFFF7CE5B), Color(0xFFA16207), Color(0xFF2E1901), Color(0xFFFFD54F))
+    MindChipTone.Danger -> MindChipPalette(Color(0xFFFECACA), Color(0xFFFCA5A5), Color(0xFFDC2626), Color(0xFF7F1D1D), Color(0xFFF87171))
 }
 
 @Composable
@@ -100,7 +100,7 @@ fun Mind3DChip(
     icon: ImageVector? = null,
     badgeText: String? = null,
     tone: MindChipTone = MindChipTone.Sky,
-    height: Dp = 44.dp,
+    height: Dp = 48.dp,
     shapeRadius: Dp = 22.dp,
     testTag: String = "mind_3d_chip"
 ) {
@@ -154,6 +154,12 @@ fun Mind3DChip(
 
     Box(
         modifier = modifier
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = handleSafeClick
+            )
             .testTag(testTag)
             .graphicsLayer {
                 scaleX = pressScale
@@ -193,12 +199,6 @@ fun Mind3DChip(
                     width = 1.2.dp,
                     color = if (isSelected || isPressed) palette.activeTop else Color(0xFFCBD5E1),
                     shape = shape
-                )
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    role = Role.Button,
-                    onClick = handleSafeClick
                 )
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center

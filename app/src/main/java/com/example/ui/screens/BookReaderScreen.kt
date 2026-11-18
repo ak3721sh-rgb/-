@@ -139,6 +139,14 @@ fun BookReaderScreen(
         }
     }
 
+    // Real active reading dwell-time tracker (counts seconds while reader is open)
+    LaunchedEffect(bookId, currentPageNumber) {
+        while (true) {
+            kotlinx.coroutines.delay(10_000L)
+            viewModel.recordReadingDwellSeconds(10)
+        }
+    }
+
     if (showTocSheet && pages.isNotEmpty()) {
         var tocQuery by remember { mutableStateOf("") }
         val filteredToc = remember(pages, tocQuery) {
@@ -394,24 +402,6 @@ fun BookReaderScreen(
                 onBackClick = { viewModel.navigateBack() },
                 actions = {
                     Mind3DIconButton(
-                        icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        onClick = {
-                            currentPage?.let {
-                                viewModel.toggleBookmark(bookId, currentPageNumber, it.sectionTitle)
-                            }
-                        },
-                        variant = if (isBookmarked) Mind3DIconVariant.Gold else Mind3DIconVariant.Neutral,
-                        buttonSize = 48.dp,
-                        contentDescription = if (isBookmarked) "حذف نشانک صفحه" else "نشانک‌گذاری صفحه"
-                    )
-                    Mind3DIconButton(
-                        icon = Icons.Default.EditNote,
-                        onClick = { showNoteDialog = true },
-                        variant = if (currentNote != null) Mind3DIconVariant.Violet else Mind3DIconVariant.Neutral,
-                        buttonSize = 48.dp,
-                        contentDescription = "یادداشت صفحه"
-                    )
-                    Mind3DIconButton(
                         icon = Icons.Default.List,
                         onClick = { showTocSheet = true },
                         variant = Mind3DIconVariant.Sky,
@@ -442,31 +432,56 @@ fun BookReaderScreen(
                     .widthIn(max = 760.dp)
                     .fillMaxSize()
                     .navigationBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
             ) {
-                // Compact Reading Progress & Focus Toggle Strip
-                Row(
+                // Compact Reading Progress, Bookmark, Note & Focus Toggle Strip
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "صفحه $currentPageNumber از $totalPages",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = SkyBluePrimary
-                    )
-
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Text(
+                            text = "صفحه $currentPageNumber از $totalPages",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = SkyBluePrimary
+                        )
                         val progressPercent = ((currentPageNumber.toFloat() / totalPages.coerceAtLeast(1)) * 100).toInt()
                         Text(
-                            text = "$progressPercent% مطالعه",
+                            text = "$progressPercent%",
                             style = MaterialTheme.typography.labelSmall,
                             color = MintPrimary,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Mind3DIconButton(
+                            icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            onClick = {
+                                currentPage?.let {
+                                    viewModel.toggleBookmark(bookId, currentPageNumber, it.sectionTitle)
+                                }
+                            },
+                            variant = if (isBookmarked) Mind3DIconVariant.Gold else Mind3DIconVariant.Neutral,
+                            buttonSize = 40.dp,
+                            contentDescription = if (isBookmarked) "حذف نشانک صفحه" else "نشانک‌گذاری صفحه",
+                            testTag = "book_bookmark_btn"
+                        )
+                        Mind3DIconButton(
+                            icon = Icons.Default.EditNote,
+                            onClick = { showNoteDialog = true },
+                            variant = if (currentNote != null) Mind3DIconVariant.Violet else Mind3DIconVariant.Neutral,
+                            buttonSize = 40.dp,
+                            contentDescription = "یادداشت صفحه",
+                            testTag = "book_note_btn"
                         )
                         Mind3DChip(
                             text = if (isFocusMode) "خروج از تمرکز" else "حالت تمرکز",
@@ -474,19 +489,19 @@ fun BookReaderScreen(
                             onClick = { isFocusMode = !isFocusMode },
                             icon = Icons.Default.CenterFocusStrong,
                             tone = Mind3DChipTone.Mint,
-                            height = 36.dp,
+                            height = 40.dp,
                             testTag = "book_focus_toggle"
                         )
                     }
                 }
 
                 if (!isFocusMode) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(5.dp))
                     LinearProgressIndicator(
                         progress = { (currentPageNumber.toFloat() / totalPages.coerceAtLeast(1)).coerceIn(0f, 1f) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(5.dp)
+                            .height(4.dp)
                             .clip(RoundedCornerShape(4.dp)),
                         color = SkyBluePrimary,
                         trackColor = Color(0xFFE2E8F0)
@@ -575,10 +590,10 @@ fun BookReaderScreen(
                         }
 
                         if (currentPage != null) {
-                            Row(
+                            FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
@@ -591,6 +606,25 @@ fun BookReaderScreen(
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = SkyBluePrimary
+                                    )
+                                }
+
+                                val (originLabel, originBg, originText) = when (currentPage.contentOrigin) {
+                                    "MENTOR_AUTHORED" -> Triple("متن تألیفی مدرس", Color(0xFFDCFCE7), Color(0xFF065F46))
+                                    "SCIENTIFIC_SUPPLEMENT" -> Triple("محتوای علمی تکمیلی", Color(0xFFE0F2FE), Color(0xFF075985))
+                                    else -> Triple("محتوا در حال تکمیل است", Color(0xFFFEF3C7), Color(0xFF92400E))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(originBg)
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = originLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = originText
                                     )
                                 }
 
@@ -628,7 +662,7 @@ fun BookReaderScreen(
                                         Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "محتوا در حال تکمیل است — سرفصل پیشنهادی و نیازمند تأیید مدرس؛ متن کامل می‌تواند با حفظ امانت‌داری از «اتاق مدرس» وارد شود.",
+                                            text = "محتوا در حال تکمیل است — چارچوب آموزشی این بخش آماده مطالعه است و متن تفصیلی استاد اکبر شیرزادخانی در بروزرسانی بعدی افزوده می‌شود.",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = Color(0xFF92400E)
                                         )

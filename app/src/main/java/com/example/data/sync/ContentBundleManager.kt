@@ -73,6 +73,7 @@ object ContentBundleManager {
                         put("totalPages", b.totalPages)
                         put("contentVersion", b.contentVersion)
                         put("isContentComplete", b.isContentComplete)
+                        put("subjectCategory", b.subjectCategory)
                     })
                 }
             })
@@ -90,6 +91,7 @@ object ContentBundleManager {
                         put("techniqueBox", p.techniqueBox ?: "")
                         put("reflectionExercise", p.reflectionExercise ?: "")
                         put("isSourcePlaceholder", p.isSourcePlaceholder)
+                        put("contentOrigin", p.contentOrigin)
                     })
                 }
             })
@@ -187,9 +189,10 @@ object ContentBundleManager {
                                 totalPages = o.optInt("totalPages", prev?.totalPages ?: 1),
                                 isUnlocked = prev?.isUnlocked ?: true || courseUnlocked,
                                 contentVersion = o.optString("contentVersion", newVersion),
-                                isOfflineSaved = true,
+                                isOfflineSaved = prev?.isOfflineSaved ?: true,
                                 isContentComplete = o.optBoolean("isContentComplete", false),
-                                lastUpdatedAt = System.currentTimeMillis()
+                                lastUpdatedAt = System.currentTimeMillis(),
+                                subjectCategory = o.optString("subjectCategory", prev?.subjectCategory ?: "ارتباط ذهن و ذهن")
                             )
                         )
                     }
@@ -203,6 +206,7 @@ object ContentBundleManager {
                     for (i in 0 until pagesArray.length()) {
                         val o = pagesArray.getJSONObject(i)
                         val bookId = o.getInt("bookId")
+                        val isPh = o.optBoolean("isSourcePlaceholder", false)
                         val page = BookPageEntity(
                             id = o.optInt("id", 0),
                             bookId = bookId,
@@ -213,7 +217,11 @@ object ContentBundleManager {
                             bodyText = o.getString("bodyText"),
                             techniqueBox = o.optString("techniqueBox", "").ifBlank { null },
                             reflectionExercise = o.optString("reflectionExercise", "").ifBlank { null },
-                            isSourcePlaceholder = o.optBoolean("isSourcePlaceholder", false)
+                            isSourcePlaceholder = isPh,
+                            contentOrigin = o.optString(
+                                "contentOrigin",
+                                if (isPh) "UNDER_COMPLETION" else "MENTOR_AUTHORED"
+                            )
                         )
                         groupedByBook.getOrPut(bookId) { mutableListOf() }.add(page)
                     }

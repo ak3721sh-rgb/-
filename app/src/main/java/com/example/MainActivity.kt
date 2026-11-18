@@ -15,10 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.screens.AboutCourseScreen
 import com.example.ui.screens.BookReaderScreen
 import com.example.ui.screens.BooksLibraryScreen
 import com.example.ui.screens.ChapterDetailScreen
 import com.example.ui.screens.ChaptersScreen
+import com.example.ui.screens.CourseSyllabusScreen
 import com.example.ui.screens.ContactScreen
 import com.example.ui.screens.DownloadHubScreen
 import com.example.ui.screens.FlashcardsScreen
@@ -61,11 +63,13 @@ class MainActivity : ComponentActivity() {
                         ) {
                             when (val screen = currentScreen) {
                                 is ScreenDestination.Splash -> SplashScreen(viewModel)
+                                is ScreenDestination.AboutCourse -> AboutCourseScreen(viewModel)
                                 is ScreenDestination.Portal -> PortalScreen(viewModel)
                                 is ScreenDestination.InstructorProfile -> InstructorProfileScreen(viewModel)
                                 is ScreenDestination.BooksLibrary -> BooksLibraryScreen(viewModel)
                                 is ScreenDestination.BookReader -> BookReaderScreen(screen.bookId, screen.pageNumber, viewModel)
                                 is ScreenDestination.Chapters -> ChaptersScreen(viewModel)
+                                is ScreenDestination.CourseSyllabus -> CourseSyllabusScreen(viewModel)
                                 is ScreenDestination.ChapterDetail -> ChapterDetailScreen(screen.chapterId, viewModel)
                                 is ScreenDestination.LessonDetail -> LessonDetailScreen(screen.lessonId, viewModel)
                                 is ScreenDestination.SpiritualSection -> SpiritualSectionScreen(viewModel)
